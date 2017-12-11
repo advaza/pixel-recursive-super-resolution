@@ -11,6 +11,13 @@ from utils import *
 import os
 import time
 
+import missinglink
+
+OWNER_ID = '605f9f21-80b1-ddd5-b2ed-ecdd662f035c'
+PROJECT_TOKEN = 'hwotoGzZzPqwaZiL'
+missinglink_project = missinglink.TensorFlowProject(OWNER_ID, PROJECT_TOKEN)
+
+
 flags = tf.app.flags
 conf = flags.FLAGS
 class Solver(object):
@@ -58,35 +65,47 @@ class Solver(object):
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     iters = 0
-    try:
-      while not coord.should_stop():
-        # Run training steps or whatever
-        t1 = time.time()
-        _, loss = sess.run([self.train_op, self.net.loss], feed_dict={self.net.train: True})
-        t2 = time.time()
-        print('step %d, loss = %.2f (%.1f examples/sec; %.3f sec/batch)' % ((iters, loss, self.batch_size/(t2-t1), (t2-t1))))
-        iters += 1
-        if iters % 10 == 0:
-          summary_str = sess.run(summary_op, feed_dict={self.net.train: True})
-          summary_writer.add_summary(summary_str, iters)
-        if iters % 1000 == 0:
-          #self.sample(sess, mu=1.0, step=iters)
-          self.sample(sess, mu=1.1, step=iters)
-          #self.sample(sess, mu=100, step=iters)
-        if iters % 10000 == 0:
-          checkpoint_path = os.path.join(self.train_dir, 'model.ckpt')
-          saver.save(sess, checkpoint_path, global_step=iters)
-    except tf.errors.OutOfRangeError:
-      checkpoint_path = os.path.join(self.train_dir, 'model.ckpt')
-      saver.save(sess, checkpoint_path)
-      print('Done training -- epoch limit reached')
-    finally:
-      # When done, ask the threads to stop.
-      coord.request_stop()
 
-    # Wait for threads to finish.
-    coord.join(threads)
-    sess.close()
+    NUM_SAMPLE = 202600
+    NUM_BATCHES = int(NUM_SAMPLE / self.batch_size)
+
+    with missinglink_project.create_experiment(
+            display_name='MNIST multilayer perception',
+            description='Two fully connected hidden layers',
+            monitored_metrics={'loss': self.net.loss}) as experiment:
+
+      try:
+        for epoch in experiment.epoch_loop(self.num_epoch):
+          for batch in experiment.batch_loop(NUM_BATCHES):
+          # while not coord.should_stop():
+          # Run training steps or whatever
+            t1 = time.time()
+            with experiment.train():
+              _, loss = sess.run([self.train_op, self.net.loss], feed_dict={self.net.train: True})
+            t2 = time.time()
+            print('step %d, loss = %.2f (%.1f examples/sec; %.3f sec/batch)' % ((iters, loss, self.batch_size/(t2-t1), (t2-t1))))
+            iters += 1
+            if iters % 10 == 0:
+              summary_str = sess.run(summary_op, feed_dict={self.net.train: True})
+              summary_writer.add_summary(summary_str, iters)
+            if iters % 1000 == 0:
+              #self.sample(sess, mu=1.0, step=iters)
+              self.sample(sess, mu=1.1, step=iters)
+              #self.sample(sess, mu=100, step=iters)
+            if iters % 10000 == 0:
+              checkpoint_path = os.path.join(self.train_dir, 'model.ckpt')
+              saver.save(sess, checkpoint_path, global_step=iters)
+      except tf.errors.OutOfRangeError:
+        checkpoint_path = os.path.join(self.train_dir, 'model.ckpt')
+        saver.save(sess, checkpoint_path)
+        print('Done training -- epoch limit reached')
+      finally:
+        # When done, ask the threads to stop.
+        coord.request_stop()
+
+      # Wait for threads to finish.
+      coord.join(threads)
+      sess.close()
   def sample(self, sess, mu=1.1, step=None):
     c_logits = self.net.conditioning_logits
     p_logits = self.net.prior_logits
