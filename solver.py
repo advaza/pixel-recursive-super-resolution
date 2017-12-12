@@ -70,8 +70,7 @@ class Solver(object):
     NUM_BATCHES = int(NUM_SAMPLE / self.batch_size)
 
     with missinglink_project.create_experiment(
-            display_name='MNIST multilayer perception',
-            description='Two fully connected hidden layers',
+            display_name='pixel-recursive-super-resolution',
             monitored_metrics={'loss': self.net.loss}) as experiment:
 
       try:
