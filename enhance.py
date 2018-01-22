@@ -3,14 +3,14 @@ import numpy as np
 import tensorflow as tf
 
 from skimage.io import imsave
-from skimage.transform import resize
-
+import os
 
 from utils import logits_2_pixel_value
 from net import Net
 
-from style_transfer.conditional_instance_norm.cin.utils.flags import Flags
-from style_transfer.conditional_instance_norm.cin.utils.image_utils import im_read
+from flags import Flags
+from image_utils import im_read, initialize_dir_if_not_exists
+from skywalker_utils import set_sigterm_handler
 
 args = Flags()
 
@@ -21,6 +21,20 @@ class SuperResModel(object):
         self.low_res_image = low_res_image
         self.high_res_image = high_res_image
         self.net = net
+
+
+def initialize_log_dir(log_dir):
+
+    # This environment variable is defined in Skywalker machine. If running training on Skywalker
+    # we need to obtain the location of output directory to created and use the log directory.
+    output_dir = os.environ.get("OUTPUT")
+    if output_dir:
+        log_dir = os.path.join(output_dir, log_dir)
+        # Set a sigterm handler if we are in Skywalker machine.
+        set_sigterm_handler()
+
+    initialize_dir_if_not_exists(log_dir)
+    print('Log dir %s initialized.' % log_dir)
 
 
 def add_arguments():
@@ -94,7 +108,15 @@ def enhance(model, low_res_input, high_res_shape, mu=1.1):
         return high_res_out_image
 
 
+def get_parent_dir(file_path):
+
+    basename = os.path.basename(file_path)
+    return file_path.replace(basename, '')
+
+
 def main():
+
+    initialize_log_dir(get_parent_dir(args.out_image_path))
 
     low_res_input = load_image(args.input_image)
 
