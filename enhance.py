@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 
 from skimage.io import imsave
-import os
+import os, progressbar
 
 from utils import logits_2_pixel_value
 from net import Net
@@ -91,7 +91,8 @@ def enhance(model, low_res_input, high_res_shape, mu=1.1):
 
         batch_size, height, width, channels = high_res_shape
 
-        for i in range(height):
+        bar = progressbar.ProgressBar()
+        for i in bar(range(height)):
             for j in range(width):
                 for c in range(channels):
                     np_p_logits = session.run(
